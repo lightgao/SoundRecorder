@@ -4,8 +4,11 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.media.AudioManager;
 import android.media.MediaRecorder;
 import android.os.Environment;
 import android.os.IBinder;
@@ -45,6 +48,9 @@ public class RecordingService extends Service {
     private Timer mTimer = null;
     private TimerTask mIncrementTimerTask = null;
 
+    private AudioManager mAudioManager;
+    private static final String TAG = "AudioRecordTest";
+
     @Override
     public IBinder onBind(Intent intent) {
         return null;
@@ -58,6 +64,23 @@ public class RecordingService extends Service {
     public void onCreate() {
         super.onCreate();
         mDatabase = new DBHelper(getApplicationContext());
+
+        // Get AudioManager
+        mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        //I am adding my own bluetooth code here
+        registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                int state = intent.getIntExtra(AudioManager.EXTRA_SCO_AUDIO_STATE, -1);
+                Log.d(TAG, "Audio SCO state: " + state);
+                if (AudioManager.SCO_AUDIO_STATE_CONNECTED == state) {
+                    // now the connection has be established to the bluetooth device
+                    unregisterReceiver(this);
+                }
+            }
+        }, new IntentFilter(AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED));
+        Log.d(TAG, "starting bluetooth");
+        mAudioManager.startBluetoothSco();
     }
 
     @Override
@@ -71,6 +94,8 @@ public class RecordingService extends Service {
         if (mRecorder != null) {
             stopRecording();
         }
+
+        mAudioManager.stopBluetoothSco();
 
         super.onDestroy();
     }
